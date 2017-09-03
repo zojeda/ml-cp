@@ -1,0 +1,125 @@
+---
+title: "Machine Learning - Course WriteUp"
+author: "Zacarías Ojeda"
+date: "August 31, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(caret)
+set.seed(123)
+```
+
+# Practical Machine Learning - Course Project
+
+*Prediction Assignment Writeup*
+
+
+## Load data
+
+```{R}
+data <- read.csv('pml-training.csv',na.strings = c("NA", "#DIV/0!"))
+```
+
+## Exploratory Data Analysis
+
+```{R}
+dim(data)
+```
+
+We have a lot of variables (160), lets try to reduce this dimension
+
+```{R}
+nZero <- nearZeroVar(data, freqCut = 95/5, uniqueCut = 10, saveMetrics = T)
+data <- data[,nZero$nzv == FALSE]
+
+dim(data)
+```
+
+Still a large number of variables, lets try to remove those columns with high percentage of NA values (90%).
+
+```{R}
+data <- data[, -which(colMeans(is.na(data)) > 0.9)]
+
+dim(data)
+```
+
+A lot of variables were removed, lets try to inspect for not useful variables for data purposes.
+
+```{R}
+names(data)
+``` 
+
+The index value (X), user_name and time related are not interesting to traint our prediction models, 
+```{R}
+data <- data[, -c(1,2,3,4,5)]
+
+dim(data)
+```
+
+
+## Creating a prediction model
+
+### Data slicing ()
+
+```{r}
+inTrain <- createDataPartition(y=data$classe, p=0.7, list=FALSE)
+training <- data[inTrain,]
+testing <- data[-inTrain,]
+  
+```
+### Training a Generalized Boosted Regression predicion model
+
+Using K-fold cross validation
+```{r}
+train_control <- trainControl(method="cv", number=3)
+
+```
+
+```{r}
+system.time(model_gbm <- train(classe ~ .,method="gbm",data=training,trControl=train_control, verbose=F))
+```
+```{r}
+plot(model_gbm)
+```
+
+
+#### Estimating Accuracy
+
+```{r}
+confusionMatrix(testing$classe,predict(model_gbm,testing))
+```
+
+### Training a RandomForest predicion model
+
+```{r}
+system.time(model_rf <- train(classe ~ .,method="rf",data=training,trControl=train_control, verbose=F))
+```
+
+```{r}
+plot(model_rf)
+```
+
+
+#### Estiamating Accuracy
+
+```{r}
+confusionMatrix(testing$classe,predict(model_rf,testing))
+```
+
+
+It seems that Random Forest performs better.
+
+## Predicting Values using 'pml-testing.csv' dataset
+
+
+```{r}
+to_predict <- read.csv('pml-testing.csv',na.strings = c("NA", "#DIV/0!"))
+```
+
+```{r}
+predictions_rf <- predict(model_rf, newdata = to_predict)
+predictions_rf
+```
+
